@@ -77,9 +77,13 @@ db = firestore.client()
 client_id = st.secrets["GOOGLE_CLIENT_ID"]
 client_secret = st.secrets["GOOGLE_CLIENT_SECRET"]
 
-# Menentukan Redirect URI secara dinamis
+# Menentukan Redirect URI secara dinamis dengan proteksi kesalahan salin format Markdown
 if "REDIRECT_URI" in st.secrets:
-    redirect_uri = st.secrets["REDIRECT_URI"]
+    raw_uri = st.secrets["REDIRECT_URI"].strip()
+    # Pembersihan otomatis jika pengguna tidak sengaja menyalin tautan berformat markdown [link](url)
+    if raw_uri.startswith("[") and "](" in raw_uri:
+        raw_uri = raw_uri.split("](")[1].split(")")[0].strip()
+    redirect_uri = raw_uri
 else:
     redirect_uri = "http://localhost:8501"
 
@@ -192,7 +196,7 @@ def hitung_tdee(bmr, tingkat_aktivitas):
         "Jarang (1-3 hari/minggu)": 1.375,
         "Cukup (3-5 hari/minggu)": 1.55,
         "Aktif (6-7 hari/minggu)": 1.725,
-        "Sangat Aktif (Fisik berat)": 1.9
+        "Sangat Actif (Fisik berat)": 1.9
     }
     return bmr * faktor[tingkat_aktivitas]
 
