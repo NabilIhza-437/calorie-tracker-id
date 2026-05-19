@@ -13,18 +13,18 @@ import requests
 # ==========================================
 # 1. KONFIGURASI AI (GEMINI) & FIREBASE
 # ==========================================
-# Konek ke Gemini AI Studio
+# Nyambungkeun ka Gemini AI Studio
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-# Konek ke Firebase Firestore
+# Nyambungkeun ka Firebase Firestore
 if not firebase_admin._apps:
     try:
         key_dict = json.loads(st.secrets["FIREBASE_JSON"])
         cred = credentials.Certificate(key_dict)
         firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.error(f"Error menghubungkan ke Firebase: {e}. Pastikan konfigurasi FIREBASE_JSON di Secrets sudah benar.")
+        st.error(f"Éror nyambungkeun ka Firebase: {e}. Pastikeun konfigurasi FIREBASE_JSON di Secrets parantos leres.")
 
 # Inisialisasi Database Firestore
 db = firestore.client()
@@ -35,24 +35,22 @@ db = firestore.client()
 client_id = st.secrets["GOOGLE_CLIENT_ID"]
 client_secret = st.secrets["GOOGLE_CLIENT_SECRET"]
 
-# Menentukan Redirect URI secara dinamis
-# Jika sedang dideploy di Streamlit Cloud, Anda bisa menambahkan 'REDIRECT_URI' di Secrets.
-# Jika tidak ada, sistem akan otomatis menggunakan localhost agar bisa dicoba di komputer lokal.
+# Nangtukeun Redirect URI sacara dinamis
 if "REDIRECT_URI" in st.secrets:
     redirect_uri = st.secrets["REDIRECT_URI"]
 else:
     redirect_uri = "http://localhost:8501"
 
-# Inisialisasi session state untuk menyimpan profil user jika berhasil login
+# Inisialisasi session state kanggo nyimpen profil pangguna upami hasil lebet
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# Alur Kerja 1: Memeriksa apakah Google mengirimkan 'code' di URL setelah user klik login
+# Alur Kerja 1: Mariksa naha Google ngintunkeun 'code' dina URL sabada pangguna klik lebet
 query_params = st.query_params
 if st.session_state.user is None and "code" in query_params:
     auth_code = query_params["code"]
     
-    # Tukarkan Authorization Code dengan Access Token dari Google
+    # Tukeurkeun Authorization Code sareng Access Token ti Google
     token_url = "https://oauth2.googleapis.com/token"
     token_data = {
         "code": auth_code,
@@ -62,39 +60,39 @@ if st.session_state.user is None and "code" in query_params:
         "grant_type": "authorization_code"
     }
     
-    with st.spinner("Sedang memverifikasi akun Google Anda..."):
+    with st.spinner("Nuju mariksa akun Google Anjeun..."):
         try:
             token_res = requests.post(token_url, data=token_data)
             if token_res.status_code == 200:
                 tokens = token_res.json()
                 access_token = tokens.get("access_token")
                 
-                # Minta data profil user menggunakan Access Token
+                # Nyuhunkeun data profil pangguna nganggo Access Token
                 userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
                 headers = {"Authorization": f"Bearer {access_token}"}
                 userinfo_res = requests.get(userinfo_url, headers=headers)
                 
                 if userinfo_res.status_code == 200:
-                    # Berhasil Login! Simpan info di Session State
+                    # Hasil Lebet! Simpen info dina Session State
                     st.session_state.user = userinfo_res.json()
-                    # Bersihkan kode dari URL agar bersih dan tidak kadaluarsa
+                    # Bersihkeun kode tina URL supados bersih sareng teu kadaluarsa
                     st.query_params.clear()
                     st.rerun()
                 else:
-                    st.error("Gagal mengambil informasi profil dari Google.")
+                    st.error("Gagal nyandak inpormasi profil ti Google.")
             else:
-                st.error("Gagal melakukan autentikasi kode dengan Google.")
+                st.error("Gagal ngalakukeun autentikasi kode sareng Google.")
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat autentikasi: {e}")
+            st.error(f"Aya kasalahan nalika autentikasi: {e}")
 
-# Alur Kerja 2: Tampilan jika belum login
+# Alur Kerja 2: Tampilan upami teu acan lebet
 if st.session_state.user is None:
-    # --- TAMPILAN LANDING PAGE JIKA BELUM LOGIN ---
-    st.markdown("<h1 style='text-align: center; font-size: 3rem;'>🥗 AI Calorie Tracker</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #4CAF50;'>Pantau Nutrisi Harian Anda dengan Mudah & Cepat</h3>", unsafe_allow_html=True)
+    # --- TAMPILAN LANDING PAGE UPAMI TEU ACAN LEBET ---
+    st.markdown("<h1 style='text-align: center; font-size: 3rem;'>🥗 Panitén Kalori AI</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #4CAF50;'>Pantau Nutrisi Poéan Anjeun kalayan Gampang & Gancang</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # Membuat tombol url Google Auth secara manual
+    # Ngadamel tombol url Google Auth sacara manual
     auth_params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
@@ -104,41 +102,41 @@ if st.session_state.user is None:
     }
     google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(auth_params)
     
-    # Ilustrasi Fitur menggunakan Emoji dan Layout Streamlit
+    # Ilustrasi Fitur nganggo Emoji sareng Layout Streamlit
     col_feat1, col_feat2, col_feat3 = st.columns(3)
     with col_feat1:
-        st.markdown("<h4 style='text-align: center;'>🧠 Kecerdasan AI</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Cukup ketik porsi makan Anda (misal: '1 piring nasi padang'), AI kami akan langsung menghitung estimasi kalori dan makronutrisinya.</p>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center;'>🧠 Kacerdasan AI</h4>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Cukup ketik porsi tuang Anjeun (misal: '1 piring nasi padang'), AI kami bakal langsung ngitung estimasi kalori sareng makronutrisina.</p>", unsafe_allow_html=True)
     with col_feat2:
-        st.markdown("<h4 style='text-align: center;'>💾 Simpan Permanen</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Semua data log makanan Anda tersimpan aman dan permanen di Cloud Database Firebase tanpa takut hilang ketika halaman di-refresh.</p>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center;'>💾 Simpen Permanén</h4>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Sadayana data log dahareun Anjeun disimpen aman sareng permanén di Cloud Database Firebase tanpa sieun ical nalika halaman di-refresh.</p>", unsafe_allow_html=True)
     with col_feat3:
         st.markdown("<h4 style='text-align: center;'>🔒 Akun Personal</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Masuk dengan aman menggunakan akun Google pribadi Anda untuk melihat statistik personalisasi kebutuhan kalori harian Anda.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Lebet kalayan aman ngagunakeun akun Google pribadi Anjeun kanggo ningal statistik personalisasi kabutuhan kalori poéan Anjeun.</p>", unsafe_allow_html=True)
         
     st.markdown("---")
     
-    # Tombol Login Google dengan style kustom yang elegan di tengah layar
+    # Tombol Login Google
     col_btn_center = st.columns([1, 2, 1])
     with col_btn_center[1]:
         st.markdown(
             f"""
             <a href="{google_auth_url}" target="_self" style="text-decoration: none;">
                 <div style="background-color: #4285F4; color: white; text-align: center; padding: 12px 24px; border-radius: 5px; font-weight: bold; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer;">
-                    🔴 Masuk Menggunakan Akun Google
+                    🔴 Lebet Ngagunakeun Akun Google
                 </div>
             </a>
             """,
             unsafe_allow_html=True
         )
-    st.stop() # Hentikan proses eksekusi kode agar halaman utama tidak terlihat sebelum login
+    st.stop() # Hentikeun proses eksekusi kode supados halaman utama teu katingal sateuacan lebet
 
-# Mengambil data profil dari akun Google yang telah berhasil login
+# Nyandak data profil ti akun Google anu parantos lebet
 user_email = st.session_state.user.get("email")
 user_name = st.session_state.user.get("name")
 
 # ==========================================
-# 3. LOGIKA PERHITUNGAN KALORI (BMR & TDEE)
+# 3. LOGIKA NGITUNG KALORI (BMR & TDEE)
 # ==========================================
 def hitung_bmr(jk, bb, tb, usia):
     if jk == "Pria": 
@@ -149,20 +147,20 @@ def hitung_bmr(jk, bb, tb, usia):
 def hitung_tdee(bmr, tingkat_aktivitas):
     faktor = {
         "Sangat Jarang Olahraga": 1.2,
-        "Jarang (1-3 hari/minggu)": 1.375,
-        "Cukup (3-5 hari/minggu)": 1.55,
-        "Aktif (6-7 hari/minggu)": 1.725,
-        "Sangat Aktif (Fisik berat)": 1.9
+        "Jarang (1-3 dinten/minggu)": 1.375,
+        "Cekap (3-5 dinten/minggu)": 1.55,
+        "Aktif (6-7 dinten/minggu)": 1.725,
+        "Aktif pisan (Fisik beurat)": 1.9
     }
     return bmr * faktor[tingkat_aktivitas]
 
 def hitung_target(tdee, tujuan):
-    if tujuan == "Lose Weight": return tdee - 500
-    elif tujuan == "Gain Weight": return tdee + 300
+    if tujuan == "Ngirangan Beurat Badan": return tdee - 500
+    elif tujuan == "Nambihan Beurat Badan": return tdee + 300
     return tdee
 
 # ==========================================
-# 4. PROSES ANALISIS NUTRISI OLEH AI
+# 4. PROSES ANALISIS NUTRISI KU AI
 # ==========================================
 def analisa_nutrisi_ai(deskripsi_makanan):
     prompt = f"""
@@ -186,7 +184,7 @@ def analisa_nutrisi_ai(deskripsi_makanan):
         )
         teks_respons = response.text.strip()
         
-        # Bersihkan pembungkus markdown JSON dari AI jika ada
+        # Bersihkeun pembungkus markdown JSON ti AI upami aya
         if teks_respons.startswith('```json'): 
             teks_respons = teks_respons[7:-3].strip()
         elif teks_respons.startswith('```'): 
@@ -194,18 +192,18 @@ def analisa_nutrisi_ai(deskripsi_makanan):
             
         return json.loads(teks_respons)
     except Exception as e:
-        st.error(f"Gagal memproses data makanan dengan AI. Error: {e}")
+        st.error(f"Gagal ngolah data dahareun ku AI. Éror: {e}")
         return None
 
 # ==========================================
-# 5. SIDEBAR UNTUK PROFIL PERSONALISASI & LOGOUT
+# 5. SIDEBAR KANGGO PROFIL PERSONALISASI & KELUAR
 # ==========================================
-st.sidebar.markdown(f"### 👤 Akun Anda")
-st.sidebar.write(f"Halo, **{user_name}**!")
+st.sidebar.markdown(f"### 👤 Akun Anjeun")
+st.sidebar.write(f"Wilujeng sumping, **{user_name}**!")
 st.sidebar.caption(f"Email: {user_email}")
 
-# Tombol Logout yang membersihkan sesi
-if st.sidebar.button("🚪 Keluar Akun", use_container_width=True):
+# Tombol Logout anu ngabersihkeun sési
+if st.sidebar.button("🚪 Kaluar Akun", use_container_width=True):
     st.session_state.user = None
     st.query_params.clear()
     st.rerun()
@@ -214,13 +212,13 @@ st.sidebar.markdown("---")
 
 st.sidebar.header("⚙️ Konfigurasi Fisik")
 jk = st.sidebar.selectbox("Jenis Kelamin", ["Pria", "Wanita"])
-usia = st.sidebar.number_input("Usia (Tahun)", min_value=10, max_value=100, value=25)
-bb = st.sidebar.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0)
-tb = st.sidebar.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=170.0)
+usia = st.sidebar.number_input("Umur (Taun)", min_value=10, max_value=100, value=25)
+bb = st.sidebar.number_input("Beurat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0)
+tb = st.sidebar.number_input("Jangkung Badan (cm)", min_value=100.0, max_value=250.0, value=170.0)
 
 aktivitas = st.sidebar.selectbox("Tingkat Aktivitas", [
-    "Sangat Jarang Olahraga", "Jarang (1-3 hari/minggu)", "Cukup (3-5 hari/minggu)", 
-    "Aktif (6-7 hari/minggu)", "Sangat Aktif (Fisik berat)"
+    "Sangat Jarang Olahraga", "Jarang (1-3 dinten/minggu)", "Cekap (3-5 dinten/minggu)", 
+    "Aktif (6-7 dinten/minggu)", "Aktif pisan (Fisik beurat)"
 ], index=2) 
 
 bmr = hitung_bmr(jk, bb, tb, usia)
@@ -231,34 +229,34 @@ st.sidebar.header("🎯 Target Kalori")
 metode_target = st.sidebar.radio("Metode Target:", ["Rekomendasi AI (Otomatis)", "Input Manual (Kustom)"])
 
 if metode_target == "Rekomendasi AI (Otomatis)":
-    tujuan = st.sidebar.selectbox("Tujuan Program Anda:", ["Lose Weight", "Maintain", "Gain Weight"])
+    tujuan = st.sidebar.selectbox("Tujuan Program Anjeun:", ["Ngirangan Beurat Badan", "Ngajaga Beurat Badan", "Nambihan Beurat Badan"])
     target_kalori = hitung_target(tdee, tujuan)
 else:
     target_kalori = st.sidebar.number_input("Target Kalori Kustom (kkal)", min_value=500, value=int(tdee))
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("💡 Analisis Kebutuhan")
-st.sidebar.write(f"Kebutuhan kalori harian normal (**TDEE**): **{int(tdee)} kkal**.")
+st.sidebar.subheader("💡 Analisis Kabutuhan")
+st.sidebar.write(f"Kabutuhan kalori dinten harian normal (**TDEE**): **{int(tdee)} kkal**.")
 
 selisih_kalori = target_kalori - tdee
 estimasi_bb_mingguan = (selisih_kalori * 7) / 7700
 
 if selisih_kalori < -50: 
-    st.sidebar.info(f"📉 Estimasi turun berat badan:\n**{abs(estimasi_bb_mingguan):.2f} kg / minggu**.")
+    st.sidebar.info(f"📉 Estimasi lungsurna beurat:\n**{abs(estimasi_bb_mingguan):.2f} kg / minggu**.")
 elif selisih_kalori > 50: 
-    st.sidebar.warning(f"📈 Estimasi naik berat badan:\n**{abs(estimasi_bb_mingguan):.2f} kg / minggu**.")
+    st.sidebar.warning(f"📈 Estimasi naékna beurat:\n**{abs(estimasi_bb_mingguan):.2f} kg / minggu**.")
 else: 
-    st.sidebar.success(f"⚖️ Berat badan stabil.")
+    st.sidebar.success(f"⚖️ Beurat badan stabil.")
 
 # ==========================================
-# 6. PENARIKAN DATA SPESIFIK BERDASARKAN USER
+# 6. NYANDAK DATA SPESIFIK COCOG SARENG PANGGUNA
 # ==========================================
-st.title("🥗 AI Calorie Tracker")
+st.title("🥗 Panitén Kalori AI")
 
 tanggal_aktif = st.date_input("📅 Pilih Tanggal Log", datetime.date.today())
 tanggal_str = str(tanggal_aktif)
 
-# Menarik data khusus hari ini DAN khusus milik email pengguna yang sedang login
+# Nyandak data khusus dinten ieu sareng khusus kagungan email pangguna anu nuju lebet
 log_hari_ini = []
 try:
     docs = db.collection('food_logs')\
@@ -268,28 +266,28 @@ try:
     for doc in docs:
         log_hari_ini.append(doc.to_dict())
 except Exception as e:
-    st.error(f"Gagal mengambil data dari database cloud: {e}")
+    st.error(f"Gagal nyandak data tina database cloud: {e}")
 
 # ==========================================
-# 7. INPUT LOG MAKANAN BARU
+# 7. INPUT LOG DAHAREUN ENGGAL
 # ==========================================
-st.markdown("### ➕ Tambah Log Makanan")
+st.markdown("### ➕ Tambahkeun Log Dahareun")
 
 col_input1, col_input2 = st.columns([2, 5])
 with col_input1:
-    waktu_makan = st.selectbox("Waktu Makan", ["Sarapan", "Makan Siang", "Makan Malam", "Camilan"])
+    waktu_makan = st.selectbox("Waktos Tuang", ["Sasarap", "Dahar Beurang", "Dahar Peuting", "Camilan"])
 with col_input2:
-    input_makanan = st.text_input("Deskripsi Makanan & Porsi", placeholder="Contoh: 1 mangkok bakso campur")
+    input_makanan = st.text_input("Pedaran Dahareun & Porsi", placeholder="Contoh: 1 mangkok bakso campur")
 
-if st.button("✨ Hitung & Catat dengan AI", use_container_width=True):
+if st.button("✨ Itung & Catet ku AI", use_container_width=True):
     if input_makanan:
-        with st.spinner('AI sedang menganalisis nutrisi makanan...'):
+        with st.spinner('AI nuju nganalisis nutrisi dahareun...'):
             hasil = analisa_nutrisi_ai(input_makanan)
             if hasil:
                 doc_id = str(uuid.uuid4())
                 entry = {
                     "id": doc_id, 
-                    "user_email": user_email, # Melabeli log agar hanya bisa dibaca pemilik akun
+                    "user_email": user_email, # Ngajagi data supados mung tiasa dibaca ku nu gaduh akun
                     "Tanggal": tanggal_str, 
                     "Waktu": waktu_makan,
                     "Makanan": input_makanan,
@@ -299,19 +297,19 @@ if st.button("✨ Hitung & Catat dengan AI", use_container_width=True):
                     "Protein (g)": float(hasil.get("protein", 0)),
                     "Lemak (g)": float(hasil.get("lemak", 0))
                 }
-                # Menyimpan data permanen ke Firestore
+                # Nyimpen data permanen ka Firestore
                 db.collection('food_logs').document(doc_id).set(entry)
-                st.success("Log makanan berhasil tersimpan!")
-                st.rerun() # Refresh instan agar data baru langsung tampil
+                st.success("Log dahareun parantos kasimpen!")
+                st.rerun() # Refresh supados data langsung katingal
     else:
-        st.warning("Silakan ketik nama makanan terlebih dahulu.")
+        st.warning("Mangga ketik nami dahareun sateuacanna.")
 
 st.markdown("---")
 
 # ==========================================
-# 8. PANEL RINGKASAN DATA NUTRISI
+# 8. PANEL RINGKESAN DATA NUTRISI
 # ==========================================
-st.markdown(f"### 📊 Ringkasan Nutrisi Hari Ini: {tanggal_aktif.strftime('%d %B %Y')}")
+st.markdown(f"### 📊 Ringkesan Nutrisi Dinten Ieu: {tanggal_aktif.strftime('%d %B %Y')}")
 
 total_kalori = sum(item["Kalori"] for item in log_hari_ini)
 total_karbo = sum(item["Karbo (g)"] for item in log_hari_ini)
@@ -321,10 +319,10 @@ sisa_kalori = target_kalori - total_kalori
 
 col_kal1, col_kal2, col_kal3 = st.columns(3)
 col_kal1.metric(label="🎯 Target (kkal)", value=int(target_kalori))
-col_kal2.metric(label="🍽️ Terkonsumsi (kkal)", value=int(total_kalori))
-col_kal3.metric(label="🔥 Sisa Kuota (kkal)", value=int(sisa_kalori), delta=int(sisa_kalori), delta_color="normal")
+col_kal2.metric(label="🍽️ Parantos Dituang (kkal)", value=int(total_kalori))
+col_kal3.metric(label="🔥 Sésa Kuota (kkal)", value=int(sisa_kalori), delta=int(sisa_kalori), delta_color="normal")
 
-# Progress bar pencapaian target kalori
+# Progress bar target kalori
 progress_val = min(max(total_kalori / target_kalori, 0.0), 1.0)
 st.progress(progress_val)
 
@@ -336,20 +334,20 @@ mac3.warning(f"🥑 **Lemak:** {int(total_lemak)}g")
 st.markdown("---")
 
 # ==========================================
-# 9. DETAIL LOG MAKANAN HARIAN & FITUR HAPUS
+# 9. DETAIL LOG DAHAREUN DINTENAN & FITUR HAPUS
 # ==========================================
-st.markdown("### 📝 Daftar Log Makanan")
+st.markdown("### 📝 Daptar Log Dahareun")
 
 if not log_hari_ini:
-    st.caption("Belum ada log makanan tercatat untuk hari ini.")
+    st.caption("Teu acan aya daptar log dahareun dinten ieu.")
 else:
-    for waktu in ["Sarapan", "Makan Siang", "Makan Malam", "Camilan"]:
+    for waktu in ["Sasarap", "Dahar Beurang", "Dahar Peuting", "Camilan"]:
         items_waktu = [i for i in log_hari_ini if i["Waktu"] == waktu]
         
         if items_waktu:
             st.markdown(f"**{waktu}**")
             h1, h2, h3, h4, h5, h6 = st.columns([3, 1.5, 1.5, 1.5, 1.5, 1])
-            h1.caption("Nama Makanan"); h2.caption("Berat(g)"); h3.caption("Kalori"); h4.caption("Karbo"); h5.caption("Protein"); h6.caption("Hapus")
+            h1.caption("Nami Dahareun"); h2.caption("Beurat(g)"); h3.caption("Kalori"); h4.caption("Karbo"); h5.caption("Protein"); h6.caption("Hapus")
             
             for item in items_waktu:
                 c1, c2, c3, c4, c5, c6 = st.columns([3, 1.5, 1.5, 1.5, 1.5, 1])
@@ -359,9 +357,9 @@ else:
                 c4.write(f"{item['Karbo (g)']:.1f}")
                 c5.write(f"{item['Protein (g)']:.1f}")
                 
-                # Aksi penghapusan data secara spesifik di Firestore
-                if c6.button("❌", key=f"del_{item['id']}", help="Klik untuk menghapus log"):
+                # Fitur mupus data tina Firestore
+                if c6.button("❌", key=f"del_{item['id']}", help="Klik kanggo mupus log"):
                     db.collection('food_logs').document(item['id']).delete()
-                    st.success("Log dihapus!")
+                    st.success("Log parantos dihapus!")
                     st.rerun() 
             st.write("")
