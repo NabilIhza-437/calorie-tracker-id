@@ -7,14 +7,14 @@ import uuid
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
-import urllib.parse
-import requests
+import hashlib
 
 # ==========================================
 # 0. VALIDASI SECRETS (PENCEGAH EROR KEYERROR)
 # ==========================================
 # Daftar kunci rahasia yang wajib ada di Streamlit Secrets
-kunci_wajib = ["GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "FIREBASE_JSON"]
+# Sekarang kita hanya butuh Gemini API Key dan Firebase Database saja! Jauh lebih ringkas!
+kunci_wajib = ["GEMINI_API_KEY", "FIREBASE_JSON"]
 kunci_hilang = [k for k in kunci_wajib if k not in st.secrets]
 
 if kunci_hilang:
@@ -36,9 +36,6 @@ if kunci_hilang:
         3. Pastikan format penulisannya menggunakan tanda kutip, seperti:
            ```toml
            GEMINI_API_KEY = "kunci_gemini_anda"
-           GOOGLE_CLIENT_ID = "kunci_client_id_anda"
-           GOOGLE_CLIENT_SECRET = "kunci_client_secret_anda"
-           REDIRECT_URI = "[https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app](https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app)"
            
            FIREBASE_JSON = \"\"\"
            {
@@ -50,12 +47,12 @@ if kunci_hilang:
         4. Jika sudah benar namun tetap error, silakan klik tombol **Reboot App** di menu Streamlit Cloud untuk memulai ulang sistem.
         """
     )
-    st.stop() # Hentikan proses eksekusi kode agar tidak crash traceback merah
+    st.stop()
 
 # ==========================================
 # 1. KONFIGURASI AI (GEMINI) & FIREBASE
 # ==========================================
-# Hubungkan ke Gemini AI Studio dengan proteksi spasi tambahan
+# Hubungkan ke Gemini AI Studio
 API_KEY = st.secrets["GEMINI_API_KEY"].strip()
 client = genai.Client(api_key=API_KEY)
 
@@ -72,148 +69,110 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==========================================
-# 2. KONFIGURASI NATIVE GOOGLE OAUTH
+# 2. SISTEM KEAMANAN & PASSWORD HASHING
 # ==========================================
-client_id = st.secrets["GOOGLE_CLIENT_ID"].strip()
-client_secret = st.secrets["GOOGLE_CLIENT_SECRET"].strip()
+def enkripsi_password(password):
+    """Menyandikan kata sandi menggunakan SHA-256 untuk menjaga keamanan privasi pengguna."""
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# Menentukan Redirect URI secara dinamis dengan proteksi kesalahan salin format Markdown
-if "REDIRECT_URI" in st.secrets:
-    raw_uri = st.secrets["REDIRECT_URI"].strip()
-    # Pembersihan otomatis jika pengguna tidak sengaja menyalin tautan berformat markdown [link](url)
-    if raw_uri.startswith("[") and "](" in raw_uri:
-        raw_uri = raw_uri.split("](")[1].split(")")[0].strip()
-    # Hapus garis miring di akhir jika ada untuk mencegah redirect_uri_mismatch
-    if raw_uri.endswith("/"):
-        raw_uri = raw_uri[:-1]
-    redirect_uri = raw_uri
-else:
-    redirect_uri = "http://localhost:8501"
-
-# Inisialisasi session state untuk melacak kode masuk yang sudah digunakan
-if "used_codes" not in st.session_state:
-    st.session_state.used_codes = set()
-
+# Inisialisasi session state untuk melacak akun aktif
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# Alur Kerja 1: Memeriksa apakah Google mengirimkan 'code' di URL setelah pengguna klik login
-query_params = st.query_params
-if st.session_state.user is None and "code" in query_params:
-    auth_code = query_params["code"]
-    
-    # Proteksi: Jika kode ini sudah pernah dicoba, segera bersihkan URL dan cegah pemanggilan ulang
-    if auth_code in st.session_state.used_codes:
-        st.query_params.clear()
-        st.rerun()
-    else:
-        st.session_state.used_codes.add(auth_code)
-        
-        # Tukarkan Authorization Code dengan Access Token dari Google
-        token_url = "https://oauth2.googleapis.com/token"
-        token_data = {
-            "code": auth_code,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code"
-        }
-        
-        with st.spinner("Sedang memverifikasi akun Google Anda..."):
-            try:
-                token_res = requests.post(token_url, data=token_data)
-                status_code = token_res.status_code
-                response_text = token_res.text
-                
-                # Mencoba membaca JSON dengan proteksi agar tidak terjadi JSONDecodeError crash
-                try:
-                    response_json = token_res.json() if response_text else {}
-                except Exception:
-                    response_json = {}
-                
-                if status_code == 200 and response_json:
-                    access_token = response_json.get("access_token")
-                    
-                    # Meminta data profil pengguna menggunakan Access Token
-                    userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-                    headers = {"Authorization": f"Bearer {access_token}"}
-                    userinfo_res = requests.get(userinfo_url, headers=headers)
-                    
-                    if userinfo_res.status_code == 200:
-                        # Berhasil Login! Simpan info di Session State
-                        st.session_state.user = userinfo_res.json()
-                        # Bersihkan kode dari URL agar bersih dan tidak kadaluarsa
-                        st.query_params.clear()
-                        st.rerun()
-                    else:
-                        st.error(f"Gagal mengambil informasi profil dari Google. (HTTP {userinfo_res.status_code})")
-                else:
-                    # Menampilkan pesan diagnostik alih-alih membiarkan aplikasi crash
-                    st.error(f"Gagal melakukan pertukaran token dengan Google. (HTTP Status: {status_code})")
-                    st.info("Berikut adalah detail respons dari server Google untuk membantu pelacakan masalah:")
-                    st.code(response_text[:800])
-                    st.warning(
-                        f"""
-                        💡 **Tips Perbaikan:**
-                        1. Pastikan **Redirect URI** yang Anda daftarkan di Google Cloud Console adalah:
-                           `https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app` (tanpa tanda garing `/` di paling belakang).
-                        2. Pastikan **REDIRECT_URI** di Secrets Streamlit Anda tertulis sama persis yaitu:
-                           `{redirect_uri}`
-                        3. Jika kedua URL di atas berbeda tipis saja (misalnya salah satu memiliki tanda `/` di akhir), Google akan menolak proses login ini.
-                        """
-                    )
-            except Exception as e:
-                st.error(f"Terjadi kesalahan saat menghubungi server Google: {e}")
-
-# Alur Kerja 2: Tampilan jika belum login
+# ==========================================
+# 3. TAMPILAN LANDING PAGE & AUTENTIKASI MANDIRI
+# ==========================================
 if st.session_state.user is None:
-    # --- TAMPILAN LANDING PAGE JIKA BELUM LOGIN ---
+    # --- TAMPILAN JIKA BELUM LOGIN ---
     st.markdown("<h1 style='text-align: center; font-size: 3rem;'>🥗 AI Calorie Tracker</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #4CAF50;'>Pantau Nutrisi Harian Anda dengan Mudah & Cepat</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # Membuat tombol url Google Auth secara manual
-    auth_params = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "state": "streamlit_oauth"
-    }
-    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(auth_params)
-    
-    # Ilustrasi Fitur menggunakan Emoji dan Layout Streamlit
+    # Layout pembagian fitur aplikasi
     col_feat1, col_feat2, col_feat3 = st.columns(3)
     with col_feat1:
         st.markdown("<h4 style='text-align: center;'>🧠 Kecerdasan AI</h4>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Cukup ketik porsi makan Anda (misal: '1 piring nasi padang'), AI kami akan langsung menghitung estimasi kalori dan makronutrisinya.</p>", unsafe_allow_html=True)
     with col_feat2:
-        st.markdown("<h4 style='text-align: center;'>💾 Simpan Permanen</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center;'>💾 Simpan Cloud</h4>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Semua data log makanan Anda tersimpan aman dan permanen di Cloud Database Firebase tanpa takut hilang ketika halaman di-refresh.</p>", unsafe_allow_html=True)
     with col_feat3:
-        st.markdown("<h4 style='text-align: center;'>🔒 Akun Personal</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Masuk dengan aman menggunakan akun Google pribadi Anda untuk melihat statistik personalisasi kebutuhan kalori harian Anda.</p>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center;'>🔒 Akun Mandiri</h4>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Daftar dan masuk menggunakan akun kustom Anda sendiri untuk memisahkan data makanan pribadi secara aman.</p>", unsafe_allow_html=True)
         
     st.markdown("---")
     
-    # Tombol Login Google & Tombol Bypass Tamu
-    col_btn_center = st.columns([1, 2, 1])
-    with col_btn_center[1]:
-        st.markdown(
-            f"""
-            <a href="{google_auth_url}" target="_self" style="text-decoration: none;">
-                <div style="background-color: #4285F4; color: white; text-align: center; padding: 12px 24px; border-radius: 5px; font-weight: bold; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer;">
-                    🔴 Masuk Menggunakan Akun Google
-                </div>
-            </a>
-            """,
-            unsafe_allow_html=True
-        )
+    # Form Autentikasi (Masuk & Daftar)
+    col_form_center = st.columns([1, 2, 1])
+    with col_form_center[1]:
+        tab_login, tab_register = st.tabs(["🔑 Masuk Akun", "📝 Daftar Akun Baru"])
         
-        st.markdown("<p style='text-align: center; color: gray; margin: 15px 0 10px 0;'>Atau gunakan mode demo jika Google OAuth sedang eror:</p>", unsafe_allow_html=True)
+        # --- TAB LOGIN ---
+        with tab_login:
+            st.markdown("<h4 style='text-align: center; margin-bottom: 15px;'>Silakan Masuk</h4>", unsafe_allow_html=True)
+            login_email = st.text_input("Alamat Email", key="login_email_input", placeholder="contoh@email.com").strip().lower()
+            login_pass = st.text_input("Kata Sandi", key="login_pass_input", type="password", placeholder="Masukkan kata sandi")
+            
+            if st.button("Masuk Sekarang", use_container_width=True, type="primary"):
+                if login_email and login_pass:
+                    with st.spinner("Memverifikasi akun Anda..."):
+                        try:
+                            # Cari user di Firestore berdasarkan email
+                            user_doc = db.collection('users').document(login_email).get()
+                            if user_doc.exists:
+                                user_data = user_doc.to_dict()
+                                # Bandingkan hash password
+                                if user_data.get("password") == enkripsi_password(login_pass):
+                                    st.session_state.user = {
+                                        "email": user_data.get("email"),
+                                        "name": user_data.get("name")
+                                    }
+                                    st.success(f"Berhasil masuk! Selamat datang kembali, {user_data.get('name')}.")
+                                    st.rerun()
+                                else:
+                                    st.error("Kata sandi yang Anda masukkan salah!")
+                            else:
+                                st.error("Akun email tersebut belum terdaftar. Silakan daftar akun baru terlebih dahulu!")
+                        except Exception as e:
+                            st.error(f"Gagal melakukan proses masuk: {e}")
+                else:
+                    st.warning("Mohon isi email dan kata sandi Anda!")
+                    
+        # --- TAB REGISTER (DAFTAR) ---
+        with tab_register:
+            st.markdown("<h4 style='text-align: center; margin-bottom: 15px;'>Buat Akun Baru</h4>", unsafe_allow_html=True)
+            reg_name = st.text_input("Nama Lengkap Anda", placeholder="Contoh: Nabil Ihza").strip()
+            reg_email = st.text_input("Alamat Email Baru", placeholder="contoh@email.com").strip().lower()
+            reg_pass = st.text_input("Buat Kata Sandi Baru", type="password", placeholder="Minimal 6 karakter")
+            
+            if st.button("Daftar & Buat Akun", use_container_width=True):
+                if reg_name and reg_email and reg_pass:
+                    if len(reg_pass) < 6:
+                        st.error("Kata sandi minimal harus terdiri dari 6 karakter!")
+                    else:
+                        with st.spinner("Mendaftarkan akun Anda ke database..."):
+                            try:
+                                # Periksa apakah email sudah terdaftar
+                                user_check = db.collection('users').document(reg_email).get()
+                                if user_check.exists:
+                                    st.error("Email tersebut sudah terdaftar! Silakan gunakan email lain atau langsung masuk.")
+                                else:
+                                    # Simpan data user baru dengan password terenkripsi
+                                    new_user_data = {
+                                        "name": reg_name,
+                                        "email": reg_email,
+                                        "password": enkripsi_password(reg_pass),
+                                        "dibuat_pada": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    }
+                                    db.collection('users').document(reg_email).set(new_user_data)
+                                    st.success("Akun berhasil dibuat! Silakan masuk pada tab 'Masuk Akun'.")
+                            except Exception as e:
+                                st.error(f"Gagal mendaftarkan akun baru: {e}")
+                else:
+                    st.warning("Mohon lengkapi seluruh formulir pendaftaran!")
         
-        # Tombol bypass login alternatif
-        if st.button("👥 Masuk sebagai Tamu (Bypass Login)", use_container_width=True, type="secondary"):
+        st.markdown("<p style='text-align: center; color: gray; margin: 20px 0 10px 0;'>Atau gunakan mode cepat jika ingin mencoba langsung:</p>", unsafe_allow_html=True)
+        if st.button("👥 Masuk sebagai Tamu (Mode Cepat)", use_container_width=True):
             st.session_state.user = {
                 "email": "tamu@calorietracker.com",
                 "name": "Tamu Spesial"
@@ -222,12 +181,12 @@ if st.session_state.user is None:
             
     st.stop() # Hentikan proses eksekusi kode agar halaman utama tidak terlihat sebelum login
 
-# Mengambil data profil dari akun Google atau mode Tamu yang telah berhasil login
+# Mengambil data profil dari sesi yang aktif
 user_email = st.session_state.user.get("email")
 user_name = st.session_state.user.get("name")
 
 # ==========================================
-# 3. LOGIKA PERHITUNGAN KALORI (BMR & TDEE)
+# 4. LOGIKA PERHITUNGAN KALORI (BMR & TDEE)
 # ==========================================
 def hitung_bmr(jk, bb, tb, usia):
     if jk == "Pria": 
@@ -251,7 +210,7 @@ def hitung_target(tdee, tujuan):
     return tdee
 
 # ==========================================
-# 4. PROSES ANALISIS NUTRISI OLEH AI
+# 5. PROSES ANALISIS NUTRISI OLEH AI
 # ==========================================
 def analisa_nutrisi_ai(deskripsi_makanan):
     prompt = f"""
@@ -287,7 +246,7 @@ def analisa_nutrisi_ai(deskripsi_makanan):
         return None
 
 # ==========================================
-# 5. SIDEBAR UNTUK PROFIL PERSONALISASI & KELUAR
+# 6. SIDEBAR UNTUK PROFIL PERSONALISASI & KELUAR
 # ==========================================
 st.sidebar.markdown(f"### 👤 Akun Anda")
 st.sidebar.write(f"Selamat datang, **{user_name}**!")
@@ -340,7 +299,7 @@ else:
     st.sidebar.success(f"⚖️ Berat badan stabil.")
 
 # ==========================================
-# 6. PENARIKAN DATA SPESIFIK COCOK DENGAN USER
+# 7. PENARIKAN DATA SPESIFIK COCOK DENGAN USER
 # ==========================================
 st.title("🥗 AI Calorie Tracker")
 
@@ -360,7 +319,7 @@ except Exception as e:
     st.error(f"Gagal menarik data dari database cloud: {e}")
 
 # ==========================================
-# 7. INPUT LOG MAKANAN BARU
+# 8. INPUT LOG MAKANAN BARU
 # ==========================================
 st.markdown("### ➕ Tambahkan Log Makanan")
 
@@ -398,7 +357,7 @@ if st.button("✨ Hitung & Catat dengan AI", use_container_width=True):
 st.markdown("---")
 
 # ==========================================
-# 8. PANEL RINGKASAN DATA NUTRISI
+# 9. PANEL RINGKASAN DATA NUTRISI
 # ==========================================
 st.markdown(f"### 📊 Ringkasan Nutrisi Hari Ini: {tanggal_aktif.strftime('%d %B %Y')}")
 
@@ -425,7 +384,7 @@ mac3.warning(f"🥑 **Lemak:** {int(total_lemak)}g")
 st.markdown("---")
 
 # ==========================================
-# 9. DETAIL LOG MAKANAN HARIAN & FITUR HAPUS
+# 10. DETAIL LOG MAKANAN HARIAN & FITUR HAPUS
 # ==========================================
 st.markdown("### 📝 Daftar Log Makanan")
 
