@@ -1,3 +1,7 @@
 streamlit
 pandas
 google-genai
+streamlit
+pandas
+google-genai
+firebase-admin
