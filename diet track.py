@@ -55,8 +55,8 @@ if kunci_hilang:
 # ==========================================
 # 1. KONFIGURASI AI (GEMINI) & FIREBASE
 # ==========================================
-# Hubungkan ke Gemini AI Studio
-API_KEY = st.secrets["GEMINI_API_KEY"]
+# Hubungkan ke Gemini AI Studio dengan proteksi spasi tambahan
+API_KEY = st.secrets["GEMINI_API_KEY"].strip()
 client = genai.Client(api_key=API_KEY)
 
 # Hubungkan ke Firebase Firestore
@@ -74,8 +74,8 @@ db = firestore.client()
 # ==========================================
 # 2. KONFIGURASI NATIVE GOOGLE OAUTH
 # ==========================================
-client_id = st.secrets["GOOGLE_CLIENT_ID"]
-client_secret = st.secrets["GOOGLE_CLIENT_SECRET"]
+client_id = st.secrets["GOOGLE_CLIENT_ID"].strip()
+client_secret = st.secrets["GOOGLE_CLIENT_SECRET"].strip()
 
 # Menentukan Redirect URI secara dinamis dengan proteksi kesalahan salin format Markdown
 if "REDIRECT_URI" in st.secrets:
@@ -83,11 +83,17 @@ if "REDIRECT_URI" in st.secrets:
     # Pembersihan otomatis jika pengguna tidak sengaja menyalin tautan berformat markdown [link](url)
     if raw_uri.startswith("[") and "](" in raw_uri:
         raw_uri = raw_uri.split("](")[1].split(")")[0].strip()
+    # Hapus garis miring di akhir jika ada untuk mencegah redirect_uri_mismatch
+    if raw_uri.endswith("/"):
+        raw_uri = raw_uri[:-1]
     redirect_uri = raw_uri
 else:
     redirect_uri = "http://localhost:8501"
 
-# Inisialisasi session state untuk menyimpan profil pengguna jika berhasil login
+# Inisialisasi session state untuk melacak kode masuk yang sudah digunakan
+if "used_codes" not in st.session_state:
+    st.session_state.used_codes = set()
+
 if "user" not in st.session_state:
     st.session_state.user = None
 
@@ -96,60 +102,68 @@ query_params = st.query_params
 if st.session_state.user is None and "code" in query_params:
     auth_code = query_params["code"]
     
-    # Tukarkan Authorization Code dengan Access Token dari Google
-    token_url = "https://oauth2.googleapis.com/token"
-    token_data = {
-        "code": auth_code,
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
-    }
-    
-    with st.spinner("Sedang memverifikasi akun Google Anda..."):
-        try:
-            token_res = requests.post(token_url, data=token_data)
-            status_code = token_res.status_code
-            response_text = token_res.text
-            
-            # Mencoba membaca JSON dengan proteksi agar tidak terjadi JSONDecodeError crash
+    # Proteksi: Jika kode ini sudah pernah dicoba, segera bersihkan URL dan cegah pemanggilan ulang
+    if auth_code in st.session_state.used_codes:
+        st.query_params.clear()
+        st.rerun()
+    else:
+        st.session_state.used_codes.add(auth_code)
+        
+        # Tukarkan Authorization Code dengan Access Token dari Google
+        token_url = "https://oauth2.googleapis.com/token"
+        token_data = {
+            "code": auth_code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code"
+        }
+        
+        with st.spinner("Sedang memverifikasi akun Google Anda..."):
             try:
-                response_json = token_res.json() if response_text else {}
-            except Exception:
-                response_json = {}
-            
-            if status_code == 200 and response_json:
-                access_token = response_json.get("access_token")
+                token_res = requests.post(token_url, data=token_data)
+                status_code = token_res.status_code
+                response_text = token_res.text
                 
-                # Meminta data profil pengguna menggunakan Access Token
-                userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-                headers = {"Authorization": f"Bearer {access_token}"}
-                userinfo_res = requests.get(userinfo_url, headers=headers)
+                # Mencoba membaca JSON dengan proteksi agar tidak terjadi JSONDecodeError crash
+                try:
+                    response_json = token_res.json() if response_text else {}
+                except Exception:
+                    response_json = {}
                 
-                if userinfo_res.status_code == 200:
-                    # Berhasil Login! Simpan info di Session State
-                    st.session_state.user = userinfo_res.json()
-                    # Bersihkan kode dari URL agar bersih dan tidak kadaluarsa
-                    st.query_params.clear()
-                    st.rerun()
+                if status_code == 200 and response_json:
+                    access_token = response_json.get("access_token")
+                    
+                    # Meminta data profil pengguna menggunakan Access Token
+                    userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                    headers = {"Authorization": f"Bearer {access_token}"}
+                    userinfo_res = requests.get(userinfo_url, headers=headers)
+                    
+                    if userinfo_res.status_code == 200:
+                        # Berhasil Login! Simpan info di Session State
+                        st.session_state.user = userinfo_res.json()
+                        # Bersihkan kode dari URL agar bersih dan tidak kadaluarsa
+                        st.query_params.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"Gagal mengambil informasi profil dari Google. (HTTP {userinfo_res.status_code})")
                 else:
-                    st.error(f"Gagal mengambil informasi profil dari Google. (HTTP {userinfo_res.status_code})")
-            else:
-                # Menampilkan pesan diagnostik alih-alih membiarkan aplikasi crash
-                st.error(f"Gagal melakukan pertukaran token dengan Google. (HTTP Status: {status_code})")
-                st.info("Berikut adalah detail respons dari server Google untuk membantu pelacakan masalah:")
-                st.code(response_text[:800])
-                st.warning(
-                    """
-                    💡 **Tips Perbaikan:**
-                    1. Jika Anda baru saja melakukan *refresh* halaman, silakan hapus bagian kode di ujung URL browser Anda (mulai dari tanda `?code=...`) kemudian tekan Enter untuk memuat ulang halaman secara bersih.
-                    2. Pastikan **Redirect URI** yang terdaftar di Google Cloud Console Anda adalah:
-                       `https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app` (tanpa tanda garing `/` di paling belakang).
-                    3. Pastikan **REDIRECT_URI** di Secrets Streamlit Anda juga tertulis sama persis tanpa spasi atau karakter garing ekstra.
-                    """
-                )
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat menghubungi server Google: {e}")
+                    # Menampilkan pesan diagnostik alih-alih membiarkan aplikasi crash
+                    st.error(f"Gagal melakukan pertukaran token dengan Google. (HTTP Status: {status_code})")
+                    st.info("Berikut adalah detail respons dari server Google untuk membantu pelacakan masalah:")
+                    st.code(response_text[:800])
+                    st.warning(
+                        f"""
+                        💡 **Tips Perbaikan:**
+                        1. Pastikan **Redirect URI** yang Anda daftarkan di Google Cloud Console adalah:
+                           `https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app` (tanpa tanda garing `/` di paling belakang).
+                        2. Pastikan **REDIRECT_URI** di Secrets Streamlit Anda tertulis sama persis yaitu:
+                           `{redirect_uri}`
+                        3. Jika kedua URL di atas berbeda tipis saja (misalnya salah satu memiliki tanda `/` di akhir), Google akan menolak proses login ini.
+                        """
+                    )
+            except Exception as e:
+                st.error(f"Terjadi kesalahan saat menghubungi server Google: {e}")
 
 # Alur Kerja 2: Tampilan jika belum login
 if st.session_state.user is None:
