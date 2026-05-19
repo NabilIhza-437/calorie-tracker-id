@@ -210,7 +210,7 @@ def hitung_target(tdee, tujuan):
     return tdee
 
 # ==========================================
-# 5. PROSES ANALISIS NUTRISI OLEH AI
+# 5. PROSES ANALISIS NUTRISI OLEH AI (DENGAN SISTEM CADANGAN)
 # ==========================================
 def analisa_nutrisi_ai(deskripsi_makanan):
     prompt = f"""
@@ -227,11 +227,30 @@ def analisa_nutrisi_ai(deskripsi_makanan):
         "lemak": 0.0
     }}
     """
+    
+    # Mencoba beberapa alternatif model demi menghindari Error NoneType / Pembatasan Akun
+    model_alternatif = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    response = None
+    eror_terakhir = ""
+    
+    for nama_model in model_alternatif:
+        try:
+            res = client.models.generate_content(
+                model=nama_model,
+                contents=prompt,
+            )
+            if res and hasattr(res, 'text') and res.text:
+                response = res
+                break
+        except Exception as e:
+            eror_terakhir = str(e)
+            continue
+            
+    if response is None:
+        st.error(f"Gagal menghubungi kecerdasan AI. Detail kendala: {eror_terakhir if eror_terakhir else 'Respon kosong dari API'}")
+        return None
+        
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
         teks_respons = response.text.strip()
         
         # Bersihkan pembungkus markdown JSON dari AI jika ada
@@ -242,7 +261,7 @@ def analisa_nutrisi_ai(deskripsi_makanan):
             
         return json.loads(teks_respons)
     except Exception as e:
-        st.error(f"Gagal memproses data makanan dengan AI. Error: {e}")
+        st.error(f"Gagal memproses data makanan dengan AI. Gagal mengurai JSON: {e}")
         return None
 
 # ==========================================
