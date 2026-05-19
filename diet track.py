@@ -196,7 +196,7 @@ if st.session_state.user is None:
         
     st.markdown("---")
     
-    # Tombol Login Google
+    # Tombol Login Google & Tombol Bypass Tamu
     col_btn_center = st.columns([1, 2, 1])
     with col_btn_center[1]:
         st.markdown(
@@ -209,9 +209,20 @@ if st.session_state.user is None:
             """,
             unsafe_allow_html=True
         )
+        
+        st.markdown("<p style='text-align: center; color: gray; margin: 15px 0 10px 0;'>Atau gunakan mode demo jika Google OAuth sedang eror:</p>", unsafe_allow_html=True)
+        
+        # Tombol bypass login alternatif
+        if st.button("👥 Masuk sebagai Tamu (Bypass Login)", use_container_width=True, type="secondary"):
+            st.session_state.user = {
+                "email": "tamu@calorietracker.com",
+                "name": "Tamu Spesial"
+            }
+            st.rerun()
+            
     st.stop() # Hentikan proses eksekusi kode agar halaman utama tidak terlihat sebelum login
 
-# Mengambil data profil dari akun Google yang telah berhasil login
+# Mengambil data profil dari akun Google atau mode Tamu yang telah berhasil login
 user_email = st.session_state.user.get("email")
 user_name = st.session_state.user.get("name")
 
