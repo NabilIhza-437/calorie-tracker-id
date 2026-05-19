@@ -271,7 +271,43 @@ def analisa_nutrisi_ai(deskripsi_makanan):
         return None
 
 # ==========================================
-# 6. SIDEBAR UNTUK PROFIL PERSONALISASI & KELUAR
+# 6. MEMUAT KONFIGURASI FISIK DARI DATABASE FIRESTORE
+# ==========================================
+# Ambil data profil fisik user dari document users jika ada
+user_profile = {}
+try:
+    user_doc = db.collection('users').document(user_email).get()
+    if user_doc.exists:
+        user_profile = user_doc.to_dict()
+except Exception as e:
+    st.sidebar.error(f"Gagal mengambil profil fisik dari Cloud: {e}")
+
+# Definisikan daftar opsi statis
+daftar_aktivitas = [
+    "Sangat Jarang Olahraga", "Jarang (1-3 hari/minggu)", "Cukup (3-5 hari/minggu)", 
+    "Aktif (6-7 hari/minggu)", "Sangat Aktif (Fisik berat)"
+]
+daftar_tujuan = ["Menurunkan Berat Badan", "Menjaga Berat Badan", "Menaikkan Berat Badan"]
+
+# Tentukan nilai default form dari database atau gunakan fallback standar jika kosong
+default_jk_idx = 0 if user_profile.get("jenis_kelamin", "Pria") == "Pria" else 1
+default_usia = int(user_profile.get("usia", 25))
+default_bb = float(user_profile.get("berat_badan", 65.0))
+default_tb = float(user_profile.get("tinggi_badan", 170.0))
+
+saved_aktivitas = user_profile.get("aktivitas", "Cukup (3-5 hari/minggu)")
+default_akt_idx = daftar_aktivitas.index(saved_aktivitas) if saved_aktivitas in daftar_aktivitas else 2
+
+saved_metode = user_profile.get("metode_target", "Rekomendasi AI (Otomatis)")
+default_metode_idx = 0 if saved_metode == "Rekomendasi AI (Otomatis)" else 1
+
+saved_tujuan = user_profile.get("tujuan", "Menjaga Berat Badan")
+default_tujuan_idx = daftar_tujuan.index(saved_tujuan) if saved_tujuan in daftar_tujuan else 1
+
+default_custom_target = int(user_profile.get("custom_target_kalori", 2000))
+
+# ==========================================
+# 7. SIDEBAR UNTUK PROFIL PERSONALISASI & KELUAR
 # ==========================================
 st.sidebar.markdown(f"### 👤 Akun Anda")
 st.sidebar.write(f"Selamat datang, **{user_name}**!")
@@ -286,28 +322,44 @@ if st.sidebar.button("🚪 Keluar Akun", use_container_width=True):
 st.sidebar.markdown("---")
 
 st.sidebar.header("⚙️ Konfigurasi Fisik")
-jk = st.sidebar.selectbox("Jenis Kelamin", ["Pria", "Wanita"])
-usia = st.sidebar.number_input("Umur (Tahun)", min_value=10, max_value=100, value=25)
-bb = st.sidebar.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0)
-tb = st.sidebar.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=170.0)
+jk = st.sidebar.selectbox("Jenis Kelamin", ["Pria", "Wanita"], index=default_jk_idx)
+usia = st.sidebar.number_input("Umur (Tahun)", min_value=10, max_value=100, value=default_usia)
+bb = st.sidebar.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=default_bb)
+tb = st.sidebar.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=default_tb)
 
-aktivitas = st.sidebar.selectbox("Tingkat Aktivitas", [
-    "Sangat Jarang Olahraga", "Jarang (1-3 hari/minggu)", "Cukup (3-5 hari/minggu)", 
-    "Aktif (6-7 hari/minggu)", "Sangat Aktif (Fisik berat)"
-], index=2) 
+aktivitas = st.sidebar.selectbox("Tingkat Aktivitas", daftar_aktivitas, index=default_akt_idx) 
 
 bmr = hitung_bmr(jk, bb, tb, usia)
 tdee = hitung_tdee(bmr, aktivitas)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎯 Target Kalori")
-metode_target = st.sidebar.radio("Metode Target:", ["Rekomendasi AI (Otomatis)", "Input Manual (Kustom)"])
+metode_target = st.sidebar.radio("Metode Target:", ["Rekomendasi AI (Otomatis)", "Input Manual (Kustom)"], index=default_metode_idx)
 
 if metode_target == "Rekomendasi AI (Otomatis)":
-    tujuan = st.sidebar.selectbox("Tujuan Program Anda:", ["Menurunkan Berat Badan", "Menjaga Berat Badan", "Menaikkan Berat Badan"])
+    tujuan = st.sidebar.selectbox("Tujuan Program Anda:", daftar_tujuan, index=default_tujuan_idx)
     target_kalori = hitung_target(tdee, tujuan)
 else:
-    target_kalori = st.sidebar.number_input("Target Kalori Kustom (kkal)", min_value=500, value=int(tdee))
+    target_kalori = st.sidebar.number_input("Target Kalori Kustom (kkal)", min_value=500, value=default_custom_target)
+
+# Tombol Simpan Konfigurasi Fisik
+st.sidebar.markdown("---")
+if st.sidebar.button("💾 Simpan Profil Fisik", use_container_width=True, type="primary"):
+    try:
+        db.collection('users').document(user_email).set({
+            "jenis_kelamin": jk,
+            "usia": int(usia),
+            "berat_badan": float(bb),
+            "tinggi_badan": float(tb),
+            "aktivitas": aktivitas,
+            "metode_target": metode_target,
+            "tujuan": tujuan if metode_target == "Rekomendasi AI (Otomatis)" else saved_tujuan,
+            "custom_target_kalori": int(target_kalori) if metode_target != "Rekomendasi AI (Otomatis)" else default_custom_target
+        }, merge=True)
+        st.sidebar.success("Profil fisik berhasil disimpan permanen!")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Gagal menyimpan ke cloud: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("💡 Analisis Kebutuhan")
@@ -324,7 +376,7 @@ else:
     st.sidebar.success(f"⚖️ Berat badan stabil.")
 
 # ==========================================
-# 7. PENARIKAN DATA SPESIFIK COCOK DENGAN USER
+# 8. PENARIKAN DATA SPESIFIK COCOK DENGAN USER
 # ==========================================
 st.title("🥗 AI Calorie Tracker")
 
@@ -344,7 +396,7 @@ except Exception as e:
     st.error(f"Gagal menarik data dari database cloud: {e}")
 
 # ==========================================
-# 8. INPUT LOG MAKANAN BARU
+# 9. INPUT LOG MAKANAN BARU
 # ==========================================
 st.markdown("### ➕ Tambahkan Log Makanan")
 
@@ -382,7 +434,7 @@ if st.button("✨ Hitung & Catat dengan AI", use_container_width=True):
 st.markdown("---")
 
 # ==========================================
-# 9. PANEL RINGKASAN DATA NUTRISI
+# 10. PANEL RINGKASAN DATA NUTRISI
 # ==========================================
 st.markdown(f"### 📊 Ringkasan Nutrisi Hari Ini: {tanggal_aktif.strftime('%d %B %Y')}")
 
@@ -409,7 +461,7 @@ mac3.warning(f"🥑 **Lemak:** {int(total_lemak)}g")
 st.markdown("---")
 
 # ==========================================
-# 10. DETAIL LOG MAKANAN HARIAN & FITUR HAPUS
+# 11. DETAIL LOG MAKANAN HARIAN & FITUR HAPUS
 # ==========================================
 st.markdown("### 📝 Daftar Log Makanan")
 
