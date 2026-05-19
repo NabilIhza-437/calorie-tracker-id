@@ -38,7 +38,7 @@ if kunci_hilang:
            GEMINI_API_KEY = "kunci_gemini_anda"
            GOOGLE_CLIENT_ID = "kunci_client_id_anda"
            GOOGLE_CLIENT_SECRET = "kunci_client_secret_anda"
-           REDIRECT_URI = "[https://calorie-tracker-id.streamlit.app](https://calorie-tracker-id.streamlit.app)"
+           REDIRECT_URI = "[https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app](https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app)"
            
            FIREBASE_JSON = \"\"\"
            {
@@ -109,9 +109,17 @@ if st.session_state.user is None and "code" in query_params:
     with st.spinner("Sedang memverifikasi akun Google Anda..."):
         try:
             token_res = requests.post(token_url, data=token_data)
-            if token_res.status_code == 200:
-                tokens = token_res.json()
-                access_token = tokens.get("access_token")
+            status_code = token_res.status_code
+            response_text = token_res.text
+            
+            # Mencoba membaca JSON dengan proteksi agar tidak terjadi JSONDecodeError crash
+            try:
+                response_json = token_res.json() if response_text else {}
+            except Exception:
+                response_json = {}
+            
+            if status_code == 200 and response_json:
+                access_token = response_json.get("access_token")
                 
                 # Meminta data profil pengguna menggunakan Access Token
                 userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -125,11 +133,23 @@ if st.session_state.user is None and "code" in query_params:
                     st.query_params.clear()
                     st.rerun()
                 else:
-                    st.error("Gagal mengambil informasi profil dari Google.")
+                    st.error(f"Gagal mengambil informasi profil dari Google. (HTTP {userinfo_res.status_code})")
             else:
-                st.error("Gagal melakukan autentikasi kode dengan Google.")
+                # Menampilkan pesan diagnostik alih-alih membiarkan aplikasi crash
+                st.error(f"Gagal melakukan pertukaran token dengan Google. (HTTP Status: {status_code})")
+                st.info("Berikut adalah detail respons dari server Google untuk membantu pelacakan masalah:")
+                st.code(response_text[:800])
+                st.warning(
+                    """
+                    💡 **Tips Perbaikan:**
+                    1. Jika Anda baru saja melakukan *refresh* halaman, silakan hapus bagian kode di ujung URL browser Anda (mulai dari tanda `?code=...`) kemudian tekan Enter untuk memuat ulang halaman secara bersih.
+                    2. Pastikan **Redirect URI** yang terdaftar di Google Cloud Console Anda adalah:
+                       `https://calorie-tracker-id-pvizq2taxcfwku3zusy6ut.streamlit.app` (tanpa tanda garing `/` di paling belakang).
+                    3. Pastikan **REDIRECT_URI** di Secrets Streamlit Anda juga tertulis sama persis tanpa spasi atau karakter garing ekstra.
+                    """
+                )
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat autentikasi: {e}")
+            st.error(f"Terjadi kesalahan saat menghubungi server Google: {e}")
 
 # Alur Kerja 2: Tampilan jika belum login
 if st.session_state.user is None:
@@ -196,7 +216,7 @@ def hitung_tdee(bmr, tingkat_aktivitas):
         "Jarang (1-3 hari/minggu)": 1.375,
         "Cukup (3-5 hari/minggu)": 1.55,
         "Aktif (6-7 hari/minggu)": 1.725,
-        "Sangat Actif (Fisik berat)": 1.9
+        "Sangat Aktif (Fisik berat)": 1.9
     }
     return bmr * faktor[tingkat_aktivitas]
 
