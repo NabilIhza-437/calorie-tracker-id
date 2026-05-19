@@ -9,4 +9,4 @@ streamlit
 pandas
 google-genai
 firebase-admin
-streamlit-google-oauth
+requests
