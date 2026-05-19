@@ -129,7 +129,7 @@ else:
 # ==========================================
 # 5. HEADER & PILIH TANGGAL
 # ==========================================
-st.title("🥗 AI Calorie Tracker by Nabalil")
+st.title("🥗 AI Calorie Tracker for Diet")
 
 tanggal_aktif = st.date_input("📅 Pilih Tanggal Log", datetime.date.today())
 
