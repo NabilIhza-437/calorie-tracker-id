@@ -7,7 +7,8 @@ import uuid
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
-from streamlit_google_oauth import login
+import urllib.parse
+import requests
 
 # ==========================================
 # 1. KONFIGURASI AI (GEMINI) & FIREBASE
@@ -29,20 +30,79 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ==========================================
-# 2. SISTEM LOGIN GOOGLE OAUTH
+# 2. KONFIGURASI NATIVE GOOGLE OAUTH
 # ==========================================
 client_id = st.secrets["GOOGLE_CLIENT_ID"]
 client_secret = st.secrets["GOOGLE_CLIENT_SECRET"]
 
-# Menjalankan fungsi login Google
-# library ini otomatis mengurus halaman login jika sesi belum aktif
-login_info = login(client_id=client_id, client_secret=client_secret)
+# Menentukan Redirect URI secara dinamis
+# Jika sedang dideploy di Streamlit Cloud, Anda bisa menambahkan 'REDIRECT_URI' di Secrets.
+# Jika tidak ada, sistem akan otomatis menggunakan localhost agar bisa dicoba di komputer lokal.
+if "REDIRECT_URI" in st.secrets:
+    redirect_uri = st.secrets["REDIRECT_URI"]
+else:
+    redirect_uri = "http://localhost:8501"
 
-if not login_info:
+# Inisialisasi session state untuk menyimpan profil user jika berhasil login
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# Alur Kerja 1: Memeriksa apakah Google mengirimkan 'code' di URL setelah user klik login
+query_params = st.query_params
+if st.session_state.user is None and "code" in query_params:
+    auth_code = query_params["code"]
+    
+    # Tukarkan Authorization Code dengan Access Token dari Google
+    token_url = "https://oauth2.googleapis.com/token"
+    token_data = {
+        "code": auth_code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    }
+    
+    with st.spinner("Sedang memverifikasi akun Google Anda..."):
+        try:
+            token_res = requests.post(token_url, data=token_data)
+            if token_res.status_code == 200:
+                tokens = token_res.json()
+                access_token = tokens.get("access_token")
+                
+                # Minta data profil user menggunakan Access Token
+                userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                userinfo_res = requests.get(userinfo_url, headers=headers)
+                
+                if userinfo_res.status_code == 200:
+                    # Berhasil Login! Simpan info di Session State
+                    st.session_state.user = userinfo_res.json()
+                    # Bersihkan kode dari URL agar bersih dan tidak kadaluarsa
+                    st.query_params.clear()
+                    st.rerun()
+                else:
+                    st.error("Gagal mengambil informasi profil dari Google.")
+            else:
+                st.error("Gagal melakukan autentikasi kode dengan Google.")
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat autentikasi: {e}")
+
+# Alur Kerja 2: Tampilan jika belum login
+if st.session_state.user is None:
     # --- TAMPILAN LANDING PAGE JIKA BELUM LOGIN ---
     st.markdown("<h1 style='text-align: center; font-size: 3rem;'>🥗 AI Calorie Tracker</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #4CAF50;'>Pantau Nutrisi Harian Anda dengan Mudah & Cepat</h3>", unsafe_allow_html=True)
     st.markdown("---")
+    
+    # Membuat tombol url Google Auth secara manual
+    auth_params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": "streamlit_oauth"
+    }
+    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(auth_params)
     
     # Ilustrasi Fitur menggunakan Emoji dan Layout Streamlit
     col_feat1, col_feat2, col_feat3 = st.columns(3)
@@ -53,16 +113,29 @@ if not login_info:
         st.markdown("<h4 style='text-align: center;'>💾 Simpan Permanen</h4>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Semua data log makanan Anda tersimpan aman dan permanen di Cloud Database Firebase tanpa takut hilang ketika halaman di-refresh.</p>", unsafe_allow_html=True)
     with col_feat3:
-        st.markdown("<h4 style='text-align: center;'>🔒 Keamanan Google</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center;'>🔒 Akun Personal</h4>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 0.9rem; color: gray;'>Masuk dengan aman menggunakan akun Google pribadi Anda untuk melihat statistik personalisasi kebutuhan kalori harian Anda.</p>", unsafe_allow_html=True)
         
     st.markdown("---")
-    st.info("💡 **Silakan klik tombol 'Login with Google' di menu melayang bagian atas atau sidebar sebelah kiri untuk mulai menggunakan aplikasi.**")
+    
+    # Tombol Login Google dengan style kustom yang elegan di tengah layar
+    col_btn_center = st.columns([1, 2, 1])
+    with col_btn_center[1]:
+        st.markdown(
+            f"""
+            <a href="{google_auth_url}" target="_self" style="text-decoration: none;">
+                <div style="background-color: #4285F4; color: white; text-align: center; padding: 12px 24px; border-radius: 5px; font-weight: bold; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer;">
+                    🔴 Masuk Menggunakan Akun Google
+                </div>
+            </a>
+            """,
+            unsafe_allow_html=True
+        )
     st.stop() # Hentikan proses eksekusi kode agar halaman utama tidak terlihat sebelum login
 
-# Mengambil data profil dari akun Google yang login
-user_email = login_info.get("email")
-user_name = login_info.get("name")
+# Mengambil data profil dari akun Google yang telah berhasil login
+user_email = st.session_state.user.get("email")
+user_name = st.session_state.user.get("name")
 
 # ==========================================
 # 3. LOGIKA PERHITUNGAN KALORI (BMR & TDEE)
@@ -125,11 +198,18 @@ def analisa_nutrisi_ai(deskripsi_makanan):
         return None
 
 # ==========================================
-# 5. SIDEBAR UNTUK PROFIL PERSONALISASI
+# 5. SIDEBAR UNTUK PROFIL PERSONALISASI & LOGOUT
 # ==========================================
 st.sidebar.markdown(f"### 👤 Akun Anda")
 st.sidebar.write(f"Halo, **{user_name}**!")
 st.sidebar.caption(f"Email: {user_email}")
+
+# Tombol Logout yang membersihkan sesi
+if st.sidebar.button("🚪 Keluar Akun", use_container_width=True):
+    st.session_state.user = None
+    st.query_params.clear()
+    st.rerun()
+
 st.sidebar.markdown("---")
 
 st.sidebar.header("⚙️ Konfigurasi Fisik")
