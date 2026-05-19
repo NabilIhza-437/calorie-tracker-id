@@ -306,6 +306,9 @@ default_tujuan_idx = daftar_tujuan.index(saved_tujuan) if saved_tujuan in daftar
 
 default_custom_target = int(user_profile.get("custom_target_kalori", 2000))
 
+# INISIALISASI VARIABEL TUJUAN SECARA AMAN (Pencegah NameError)
+tujuan = saved_tujuan
+
 # ==========================================
 # 7. SIDEBAR UNTUK PROFIL PERSONALISASI & KELUAR
 # ==========================================
@@ -353,7 +356,7 @@ if st.sidebar.button("💾 Simpan Profil Fisik", use_container_width=True, type=
             "tinggi_badan": float(tb),
             "aktivitas": aktivitas,
             "metode_target": metode_target,
-            "tujuan": tujuan if metode_target == "Rekomendasi AI (Otomatis)" else saved_tujuan,
+            "tujuan": tujuan, # Sekarang selalu aman karena sudah memiliki nilai inisialisasi default
             "custom_target_kalori": int(target_kalori) if metode_target != "Rekomendasi AI (Otomatis)" else default_custom_target
         }, merge=True)
         st.sidebar.success("Profil fisik berhasil disimpan permanen!")
