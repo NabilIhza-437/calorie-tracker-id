@@ -8,6 +8,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 import hashlib
+import os
 
 # ==========================================
 # 0. VALIDASI SECRETS (PENCEGAH EROR KEYERROR)
@@ -52,9 +53,14 @@ if kunci_hilang:
 # ==========================================
 # 1. KONFIGURASI AI (GEMINI) & FIREBASE
 # ==========================================
-# Hubungkan ke Gemini AI Studio
+# Ambil API KEY Gemini dari Streamlit Secrets
 API_KEY = st.secrets["GEMINI_API_KEY"].strip()
-client = genai.Client(api_key=API_KEY)
+
+# Set kunci API ke Environment Variable sistem agar dibaca otomatis secara aman oleh SDK Google GenAI
+os.environ["GEMINI_API_KEY"] = API_KEY
+
+# Hubungkan ke Gemini AI Studio secara aman tanpa argument-mapping bypass
+client = genai.Client()
 
 # Hubungkan ke Firebase Firestore
 if not firebase_admin._apps:
