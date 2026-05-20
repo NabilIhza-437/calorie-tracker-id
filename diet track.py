@@ -360,6 +360,8 @@ total_lemak = sum(item["Lemak (g)"] for item in log_hari_ini)
 sisa_kalori = target_kalori - total_kalori
 
 # Perhitungan Estimasi Mingguan Berdasarkan Pencapaian Aktual vs TDEE
+# Jika belum ada kalori yang dimakan, gunakan target kalori untuk estimasi. 
+# Jika sudah ada, gunakan total kalori aktual yang dicapai agar proyeksinya real-time.
 if total_kalori > 0:
     selisih_kalori = total_kalori - tdee
 else:
@@ -411,10 +413,10 @@ if sisa_kalori < 0:
     <div style='background-color: rgba(248, 113, 113, 0.1); border: 1px solid #F87171; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px; display: flex; align-items: flex-start; gap: 12px;'>
         <div style='font-size: 1.5rem; line-height: 1;'>⚠️</div>
         <div>
-            <div style='color: #F87171; font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;'>Ups, Batas Kalori Harian Telah Terlampaui!</div>
+            <div style='color: #F87171; font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;'>Batas Kalori Terlampaui!</div>
             <div style='color: #E2E8F0; font-size: 0.85rem; line-height: 1.4;'>
-                Kamu sudah melewati batas target sebesar <b>{abs(int(sisa_kalori))} kkal</b> hari ini. 
-                Jangan menyerah! 💪 Terus berusaha dan jadikan hari esok lebih baik. Perjalanan menuju tubuh ideal adalah maraton, bukan lari sprint!
+                Kamu kelebihan <b>{abs(int(sisa_kalori))} kkal</b> dari target hari ini. 
+                <i>"Satu hari yang berlebih tidak akan menghancurkan progresmu, sama seperti satu hari diet ketat tidak akan langsung membuatmu sehat."</i> 💪 Tarik napas, maafkan dirimu, dan mari kembali <i>on-track</i> besok!
             </div>
         </div>
     </div>
@@ -430,7 +432,7 @@ with mac3:
     st.markdown(f"<div class='cyber-card' style='padding: 10px; text-align: center;'><span style='color:#64748B; font-size:0.7rem;'>🥑 LEMAK</span><br><b style='color:#F59E0B; font-size:1.1rem; font-family:Space Mono;'>{int(total_lemak)}g</b></div>", unsafe_allow_html=True)
 with mac4:
     if total_kalori == 0:
-        status_bb = "<span style='color:#64748B; font-weight:700;'>Belum ada data</span>"
+        status_bb = f"<span style='color:#64748B; font-weight:700;'>Target: {abs(estimasi_bb_mingguan):.2f} kg</span>"
     elif estimasi_bb_mingguan < -0.01:
         status_bb = f"<span style='color:#4ADE80; font-weight:700;'>📉 Turun {abs(estimasi_bb_mingguan):.2f} kg</span>"
     elif estimasi_bb_mingguan > 0.01:
