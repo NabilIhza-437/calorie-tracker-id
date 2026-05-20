@@ -16,6 +16,7 @@ import os
 st.set_page_config(page_title="KaloriAI — Smart Calorie Tracker", page_icon="🥗", layout="wide")
 
 # Injeksi CSS Kustom untuk Merombak Total UI Sesuai kalori_main.html
+# dan menipiskan padding/margin yang berlebihan
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -27,6 +28,22 @@ st.markdown("""
         font-family: 'Sora', sans-serif !important;
     }
     
+    /* Penyesuaian Ruang Kosong (Blank Space) Global */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    h1, h2, h3 {
+        margin-bottom: 0.5rem !important;
+        margin-top: 0.5rem !important;
+    }
+
+    hr {
+        margin-top: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
+
     /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background-color: #161921 !important;
@@ -70,14 +87,20 @@ st.markdown("""
         background-color: #161921;
         border: 1px solid #2D3748;
         border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
+        padding: 15px; /* Disesuaikan agar lebih tipis */
+        margin-bottom: 15px; /* Disesuaikan agar lebih tipis */
     }
     
     .metric-number {
         font-family: 'Space Mono', monospace;
-        font-size: 2rem;
+        font-size: 1.8rem; /* Sedikit dikecilkan agar proporsional */
         font-weight: 700;
+        margin-top: 5px;
+    }
+    
+    /* Tweak for warning box */
+    div[data-testid="stAlert"] {
+        padding: 10px 15px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -119,10 +142,9 @@ if "user" not in st.session_state:
 # 2. HALAMAN LOGIN & DAFTAR (CYBERPUNK THEME)
 # ==========================================
 if st.session_state.user is None:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; font-weight:700; background: linear-gradient(to right, #4ADE80, #22D3EE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🥗 KaloriAI</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748B; font-size: 1.1rem;'>Smart Calorie Tracker — Generasi Terbaru Pengawal Nutrisi Anda</p>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    # Menghapus <br> yang berlebihan
+    st.markdown("<h1 style='text-align: center; font-size: 3rem; font-weight:700; background: linear-gradient(to right, #4ADE80, #22D3EE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🥗 KaloriAI</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748B; font-size: 1rem;'>Smart Calorie Tracker — Generasi Terbaru Pengawal Nutrisi Anda</p>", unsafe_allow_html=True)
     
     col_form_center = st.columns([1, 1.8, 1])
     with col_form_center[1]:
@@ -130,10 +152,9 @@ if st.session_state.user is None:
         tab_login, tab_register = st.tabs(["🔑 Masuk Sistem", "📝 Registrasi Akun"])
         
         with tab_login:
-            st.markdown("<br>", unsafe_allow_html=True)
             login_email = st.text_input("Alamat Email", key="login_email_input", placeholder="nama@email.com").strip().lower()
             login_pass = st.text_input("Kata Sandi", key="login_pass_input", type="password", placeholder="••••••••")
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             if st.button("Akses Dashboard", use_container_width=True, type="primary"):
                 if login_email and login_pass:
                     try:
@@ -157,11 +178,10 @@ if st.session_state.user is None:
                     st.warning("Formulir wajib diisi!")
                     
         with tab_register:
-            st.markdown("<br>", unsafe_allow_html=True)
             reg_name = st.text_input("Nama Lengkap", placeholder="Nabil Ihza").strip()
             reg_email = st.text_input("Email Baru", placeholder="nama@email.com").strip().lower()
             reg_pass = st.text_input("Buat Kata Sandi", type="password", placeholder="Minimal 6 karakter")
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             if st.button("Buat Akun Baru", use_container_width=True):
                 if reg_name and reg_email and reg_pass:
                     if len(reg_pass) < 6:
@@ -244,8 +264,8 @@ with st.sidebar:
     st.markdown("---")
     jk = st.selectbox("Jenis Kelamin", ["Pria", "Wanita"], index=default_jk_idx)
     usia = st.number_input("Umur (Tahun)", min_value=10, max_value=100, value=default_usia)
-    bb = st.sidebar.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=default_bb)
-    tb = st.sidebar.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=default_tb)
+    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=default_bb)
+    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=default_tb)
     aktivitas = st.selectbox("Tingkat Aktivitas", daftar_aktivitas, index=default_akt_idx)
     
     bmr = hitung_bmr(jk, bb, tb, usia)
@@ -261,7 +281,7 @@ with st.sidebar:
         target_kalori = st.number_input("Batas Kalori Kustom (kkal)", min_value=500, value=default_custom_target)
         tujuan_program = saved_tujuan
         
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     if st.button("💾 Simpan Profil Fisik", use_container_width=True, type="primary"):
         try:
             db.collection('users').document(user_email).set({
@@ -279,7 +299,7 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
             
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
     if st.button("🚪 Keluar Akun", use_container_width=True):
         st.session_state.user = None
         st.rerun()
@@ -288,17 +308,17 @@ with st.sidebar:
 # 5. HEADER UTAMA (MODERN PREMIUM HEADER PILL)
 # ==========================================
 st.markdown(f"""
-<div style="display: flex; justify-content: space-between; align-items: center; background-color: #161921; padding: 15px 25px; border-radius: 12px; border: 1px solid #2D3748; margin-bottom: 25px;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-size: 28px;">🥗</span>
+<div style="display: flex; justify-content: space-between; align-items: center; background-color: #161921; padding: 12px 20px; border-radius: 12px; border: 1px solid #2D3748; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 24px;">🥗</span>
         <div>
-            <div style="font-weight: 700; font-size: 20px; color: #4ADE80; letter-spacing: 0.5px;">KaloriAI</div>
+            <div style="font-weight: 700; font-size: 18px; color: #4ADE80; letter-spacing: 0.5px; line-height: 1.2;">KaloriAI</div>
             <div style="font-size: 11px; color: #64748B;">Smart Calorie Tracker</div>
         </div>
     </div>
     <div style="display: flex; align-items: center; gap: 15px;">
-        <div style="display: flex; align-items: center; gap: 8px; background: #1E2330; padding: 6px 14px; border-radius: 20px; border: 1px solid #2D3748;">
-            <div style="background: #4ADE80; color: #0D0F14; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px;">{user_name[0].upper() if user_name else 'U'}</div>
+        <div style="display: flex; align-items: center; gap: 8px; background: #1E2330; padding: 5px 12px; border-radius: 20px; border: 1px solid #2D3748;">
+            <div style="background: #4ADE80; color: #0D0F14; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px;">{user_name[0].upper() if user_name else 'U'}</div>
             <span style="font-size: 13px; font-weight: 500; color: #F1F5F9;">{user_name}</span>
         </div>
     </div>
@@ -332,29 +352,29 @@ estimasi_bb_mingguan = (selisih_kalori * 7) / 7700
 # ==========================================
 # 7. DASHBOARD SUMMARY CARDS (CYBER THEME METRICS)
 # ==========================================
-st.markdown("<h3 style='font-size:1.3rem; font-weight:600; color:#F1F5F9; margin-bottom:15px;'>📊 Ringkasan Nutrisi</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='font-size:1.2rem; font-weight:600; color:#F1F5F9; margin-bottom:10px;'>📊 Ringkasan Nutrisi</h3>", unsafe_allow_html=True)
 
 m_col1, m_col2, m_col3 = st.columns(3)
 with m_col1:
     st.markdown(f"""
     <div class='cyber-card' style='border-left: 4px solid #22D3EE;'>
-        <div style='color: #64748B; font-size: 0.85rem; font-weight: 500;'>TARGET KEBUTUHAN</div>
-        <div class='metric-number' style='color: #22D3EE;'>{int(target_kalori)} <span style='font-size:1rem; color:#64748B;'>kkal</span></div>
+        <div style='color: #64748B; font-size: 0.8rem; font-weight: 500;'>TARGET KEBUTUHAN</div>
+        <div class='metric-number' style='color: #22D3EE;'>{int(target_kalori)} <span style='font-size:0.9rem; color:#64748B;'>kkal</span></div>
     </div>
     """, unsafe_allow_html=True)
 with m_col2:
     st.markdown(f"""
     <div class='cyber-card' style='border-left: 4px solid #4ADE80;'>
-        <div style='color: #64748B; font-size: 0.85rem; font-weight: 500;'>TOTAL TERKONSUMSI</div>
-        <div class='metric-number' style='color: #4ADE80;'>{int(total_kalori)} <span style='font-size:1rem; color:#64748B;'>kkal</span></div>
+        <div style='color: #64748B; font-size: 0.8rem; font-weight: 500;'>TOTAL TERKONSUMSI</div>
+        <div class='metric-number' style='color: #4ADE80;'>{int(total_kalori)} <span style='font-size:0.9rem; color:#64748B;'>kkal</span></div>
     </div>
     """, unsafe_allow_html=True)
 with m_col3:
     warna_sisa = "#4ADE80" if sisa_kalori >= 0 else "#F87171"
     st.markdown(f"""
     <div class='cyber-card' style='border-left: 4px solid {warna_sisa};'>
-        <div style='color: #64748B; font-size: 0.85rem; font-weight: 500;'>SISA KUOTA KALORI</div>
-        <div class='metric-number' style='color: {warna_sisa};'>{int(sisa_kalori)} <span style='font-size:1rem; color:#64748B;'>kkal</span></div>
+        <div style='color: #64748B; font-size: 0.8rem; font-weight: 500;'>SISA KUOTA KALORI</div>
+        <div class='metric-number' style='color: {warna_sisa};'>{int(sisa_kalori)} <span style='font-size:0.9rem; color:#64748B;'>kkal</span></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -362,19 +382,34 @@ with m_col3:
 progress_percent = min(max(total_kalori / target_kalori, 0.0), 1.0) * 100
 warna_bar = "#4ADE80" if total_kalori <= target_kalori else "#F87171"
 st.markdown(f"""
-<div style="width: 100%; background-color: #1E2330; border-radius: 20px; height: 10px; margin-bottom: 25px; border: 1px solid #2D3748; overflow: hidden;">
+<div style="width: 100%; background-color: #1E2330; border-radius: 20px; height: 8px; margin-bottom: 15px; border: 1px solid #2D3748; overflow: hidden;">
     <div style="width: {progress_percent}%; background: {warna_bar}; height: 100%; border-radius: 20px; transition: width 0.5s ease-in-out;"></div>
 </div>
 """, unsafe_allow_html=True)
 
+# WARNING: Pesan Motivasi Jika Melebihi Batas Kalori
+if sisa_kalori < 0:
+    st.markdown(f"""
+    <div style='background-color: rgba(248, 113, 113, 0.1); border: 1px solid #F87171; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px;'>
+        <div style='font-size: 1.5rem; line-height: 1;'>⚠️</div>
+        <div>
+            <div style='color: #F87171; font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;'>Ups, Kalori Harian Telah Terlampaui!</div>
+            <div style='color: #E2E8F0; font-size: 0.85rem; line-height: 1.4;'>
+                Kamu sudah melewati batas target sebesar <b>{abs(int(sisa_kalori))} kkal</b> hari ini. 
+                Jangan menyerah! 💪 Besok adalah hari baru untuk memulai kembali dengan pilihan makanan yang lebih sehat. Ingat, perjalanan menuju tubuh ideal adalah marathon, bukan lari sprint!
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Row Makronutrisi & Estimasi Mingguan
 mac1, mac2, mac3, mac4 = st.columns(4)
 with mac1:
-    st.markdown(f"<div class='cyber-card' style='padding: 15px; text-align: center;'><span style='color:#64748B; font-size:0.8rem;'>🍚 KARBOHIDRAT</span><br><b style='color:#F1F5F9; font-size:1.2rem; font-family:Space Mono;'>{int(total_karbo)}g</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='cyber-card' style='padding: 12px; text-align: center;'><span style='color:#64748B; font-size:0.75rem;'>🍚 KARBOHIDRAT</span><br><b style='color:#F1F5F9; font-size:1.1rem; font-family:Space Mono;'>{int(total_karbo)}g</b></div>", unsafe_allow_html=True)
 with mac2:
-    st.markdown(f"<div class='cyber-card' style='padding: 15px; text-align: center;'><span style='color:#64748B; font-size:0.8rem;'>🍗 PROTEIN</span><br><b style='color:#4ADE80; font-size:1.2rem; font-family:Space Mono;'>{int(total_protein)}g</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='cyber-card' style='padding: 12px; text-align: center;'><span style='color:#64748B; font-size:0.75rem;'>🍗 PROTEIN</span><br><b style='color:#4ADE80; font-size:1.1rem; font-family:Space Mono;'>{int(total_protein)}g</b></div>", unsafe_allow_html=True)
 with mac3:
-    st.markdown(f"<div class='cyber-card' style='padding: 15px; text-align: center;'><span style='color:#64748B; font-size:0.8rem;'>🥑 LEMAK</span><br><b style='color:#F59E0B; font-size:1.2rem; font-family:Space Mono;'>{int(total_lemak)}g</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='cyber-card' style='padding: 12px; text-align: center;'><span style='color:#64748B; font-size:0.75rem;'>🥑 LEMAK</span><br><b style='color:#F59E0B; font-size:1.1rem; font-family:Space Mono;'>{int(total_lemak)}g</b></div>", unsafe_allow_html=True)
 with mac4:
     if estimasi_bb_mingguan < -0.01:
         status_bb = f"<span style='color:#4ADE80; font-weight:700;'>📉 Turun {abs(estimasi_bb_mingguan):.2f} kg</span>"
@@ -382,7 +417,7 @@ with mac4:
         status_bb = f"<span style='color:#F87171; font-weight:700;'>📈 Naik {abs(estimasi_bb_mingguan):.2f} kg</span>"
     else:
         status_bb = "<span style='color:#22D3EE; font-weight:700;'>⚖️ Stabil</span>"
-    st.markdown(f"<div class='cyber-card' style='padding: 15px; text-align: center;'><span style='color:#64748B; font-size:0.8rem;'>🔮 PROYEKSI MINGGUAN</span><br><b style='font-size:1rem;'>{status_bb}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='cyber-card' style='padding: 12px; text-align: center;'><span style='color:#64748B; font-size:0.75rem;'>🔮 PROYEKSI MINGGUAN</span><br><b style='font-size:0.9rem;'>{status_bb}</b></div>", unsafe_allow_html=True)
 
 # ==========================================
 # 8. AGEN AI CORE ENGINE LOGIC
@@ -434,7 +469,7 @@ def analisa_nutrisi_ai(deskripsi_makanan):
 # 9. INTEGRASI INPUT MAKANAN BARU & CATATAN AI
 # ==========================================
 st.markdown("---")
-st.markdown("<h3 style='font-size:1.3rem; font-weight:600; color:#F1F5F9; margin-bottom:15px;'>➕ Log Asupan Baru</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='font-size:1.2rem; font-weight:600; color:#F1F5F9; margin-bottom:10px;'>➕ Log Asupan Baru</h3>", unsafe_allow_html=True)
 
 st.markdown("<div class='cyber-card'>", unsafe_allow_html=True)
 col_in1, col_in2 = st.columns([1.5, 4])
@@ -472,7 +507,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 # 10. DAFTAR LOG MAKANAN HARIAN & FITUR HAPUS
 # ==========================================
 st.markdown("---")
-st.markdown("<h3 style='font-size:1.3rem; font-weight:600; color:#F1F5F9; margin-bottom:15px;'>📝 Daftar Menu Hari Ini</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='font-size:1.2rem; font-weight:600; color:#F1F5F9; margin-bottom:10px;'>📝 Daftar Menu Hari Ini</h3>", unsafe_allow_html=True)
 
 if not log_hari_ini:
     st.caption("Belum ada asupan makanan yang tercatat pada tanggal ini.")
@@ -480,18 +515,18 @@ else:
     for waktu in ["Sarapan", "Makan Siang", "Makan Malam", "Camilan"]:
         items_waktu = [i for i in log_hari_ini if i["Waktu"] == waktu]
         if items_waktu:
-            st.markdown(f"<div style='color:#22D3EE; font-weight:600; margin-top:10px; margin-bottom:5px;'>⏱️ {waktu}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='color:#22D3EE; font-weight:600; margin-top:5px; margin-bottom:5px; font-size: 0.9rem;'>⏱️ {waktu}</div>", unsafe_allow_html=True)
             for item in items_waktu:
-                st.markdown(f"<div class='cyber-card' style='padding: 12px 20px; margin-bottom: 8px;'>", unsafe_allow_html=True)
+                st.markdown(f"<div class='cyber-card' style='padding: 10px 15px; margin-bottom: 8px;'>", unsafe_allow_html=True)
                 c1, c2, c3, c4, c5, c6 = st.columns([4, 1.2, 1.2, 1.2, 1.2, 0.6])
-                c1.markdown(f"<span style='font-size:0.95rem; font-weight:500;'>{item['Makanan']}</span>", unsafe_allow_html=True)
-                c2.markdown(f"<span style='color:#64748B; font-size:0.85rem;'>Berat:</span> <br><b style='font-family:Space Mono;'>{item['Est. Berat (g)']:.0f}g</b>", unsafe_allow_html=True)
-                c3.markdown(f"<span style='color:#22D3EE; font-size:0.85rem;'>Kalori:</span> <br><b style='font-family:Space Mono; color:#22D3EE;'>{item['Kalori']:.0f}k</b>", unsafe_allow_html=True)
-                c4.markdown(f"<span style='color:#64748B; font-size:0.85rem;'>K:</span> <br><b style='font-family:Space Mono;'>{item['Karbo (g)']:.0f}g</b>", unsafe_allow_html=True)
-                c5.markdown(f"<span style='color:#4ADE80; font-size:0.85rem;'>P:</span> <br><b style='font-family:Space Mono; color:#4ADE80;'>{item['Protein (g)']:.0f}g</b>", unsafe_allow_html=True)
+                c1.markdown(f"<span style='font-size:0.9rem; font-weight:500;'>{item['Makanan']}</span>", unsafe_allow_html=True)
+                c2.markdown(f"<span style='color:#64748B; font-size:0.75rem;'>Berat:</span> <br><b style='font-family:Space Mono; font-size:0.9rem;'>{item['Est. Berat (g)']:.0f}g</b>", unsafe_allow_html=True)
+                c3.markdown(f"<span style='color:#22D3EE; font-size:0.75rem;'>Kalori:</span> <br><b style='font-family:Space Mono; color:#22D3EE; font-size:0.9rem;'>{item['Kalori']:.0f}k</b>", unsafe_allow_html=True)
+                c4.markdown(f"<span style='color:#64748B; font-size:0.75rem;'>K:</span> <br><b style='font-family:Space Mono; font-size:0.9rem;'>{item['Karbo (g)']:.0f}g</b>", unsafe_allow_html=True)
+                c5.markdown(f"<span style='color:#4ADE80; font-size:0.75rem;'>P:</span> <br><b style='font-family:Space Mono; color:#4ADE80; font-size:0.9rem;'>{item['Protein (g)']:.0f}g</b>", unsafe_allow_html=True)
                 
                 with c6:
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
                     if st.button("❌", key=f"del_{item['id']}", help="Hapus log makanan ini"):
                         try:
                             db.collection('food_logs').document(item['id']).delete()
