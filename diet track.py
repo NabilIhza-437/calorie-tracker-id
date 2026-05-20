@@ -16,22 +16,27 @@ import os
 st.set_page_config(page_title="KaloriAI — Pelacak Kalori Pintar", page_icon="🥗", layout="wide")
 
 # Injeksi CSS Kustom untuk merombak UI
-# Menipiskan margin/padding yang berlebihan di seluruh sistem
+# Memperbaiki margin/padding agar tidak ada yang terpotong di atas dan bawah
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
     
     /* Perubahan Latar Belakang Global */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    html, body, [data-testid="stAppViewContainer"] {
         background-color: #0D0F14 !important;
         color: #F1F5F9 !important;
         font-family: 'Sora', sans-serif !important;
     }
     
-    /* Penyesuaian Ruang Kosong (Blank Space) Global agar lebih tipis */
+    /* Membuat header bawaan Streamlit transparan agar tidak menutupi UI paling atas */
+    [data-testid="stHeader"] {
+        background-color: transparent !important;
+    }
+    
+    /* Penyesuaian Ruang Kosong (Blank Space) Global agar bisa di-scroll sampai tuntas */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 1.5rem !important;
+        padding-top: 4.5rem !important; /* Jarak aman atas */
+        padding-bottom: 6rem !important; /* Jarak aman bawah */
     }
     
     h1, h2, h3, h4 {
