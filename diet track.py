@@ -512,7 +512,7 @@ st.markdown("<h3 style='font-size:1.2rem; font-weight:600; color:#F1F5F9; margin
 if not log_hari_ini:
     st.caption("Belum ada asupan makanan yang tercatat pada tanggal ini.")
 else:
-    for waktu in ["Sarapan", "Makan Siang", "Makan Malam", "Camilan"]:
+    for waktu in ["Sarapan Pagi", "Makan Siang", "Makan Malam", "Camilan"]:
         items_waktu = [i for i in log_hari_ini if i["Waktu"] == waktu]
         if items_waktu:
             st.markdown(f"<div style='color:#22D3EE; font-weight:600; margin-top:5px; margin-bottom:5px; font-size: 0.9rem;'>⏱️ {waktu}</div>", unsafe_allow_html=True)
